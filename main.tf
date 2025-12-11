@@ -17,6 +17,31 @@ resource "google_compute_network" "vpc_network" {
   name = "terraform-network"
 }
 
+resource "google_compute_firewall" "allow_web_traffic" {
+  name    = "allow-web-traffic"
+  network = google_compute_network.vpc_network.name
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22", "80", "443"]
+  }
+
+  source_ranges = ["0.0.0.0/0"]
+  target_tags   = ["web"]
+}
+
+resource "google_service_account" "vm_sa" {
+  account_id   = "vm-instance-sa"
+  display_name = "VM Instance Service Account"
+}
+
+resource "google_compute_disk" "instance_disk" {
+  name = "terraform-instance-disk"
+  type = "pd-balanced"
+  zone = var.zone
+  size = 10
+}
+
 resource "google_compute_instance" "vm_instance"{
   name         = "terraform-instance"
 machine_type = "e2-small"
@@ -25,15 +50,26 @@ allow_stopping_for_update = true
 
   boot_disk {
     initialize_params {
-  # image = "debian-cloud/debian-12"
-  image = "cos-cloud/cos-stable"
+  image = "debian-cloud/debian-12"
+  
      }
+  }
+
+  attached_disk {
+    source = google_compute_disk.instance_disk.id
   }
 
   network_interface {
     network = google_compute_network.vpc_network.name
     access_config {
     }
+  }
+
+  service_account {
+    # The email of the service account to attach.
+    email  = google_service_account.vm_sa.email
+    # The list of scopes to grant the service account.
+    scopes = ["cloud-platform"]
   }
 }
 

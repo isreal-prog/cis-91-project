@@ -2,6 +2,17 @@
   name: Install Apache and PHP
   become: yes
   tasks:
+    - name: Format the persistent disk
+      community.general.filesystem:
+        fstype: ext4
+        dev: /dev/sdb
+
+    - name: Mount the persistent disk to /var/lib/mysql
+      ansible.posix.mount:
+        path: /var/lib/mysql
+        src: /dev/sdb
+        fstype: ext4
+        state: mounted
     - name: Install packages 
       ansible.builtin.apt:
         update_cache: yes

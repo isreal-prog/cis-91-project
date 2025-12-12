@@ -1,19 +1,44 @@
-- hosts: all
-  name: Install Apache and PHP
+---
+# ===============================================
+# PART 1: Database Setup on DB Instance
+# ===============================================
+- hosts: tags_items___db__
+  name: Prepare Storage for MYSQL
   become: yes
   tasks:
-    - name: Format the persistent disk
+    - name: Create ext4 filesystem on the persistent isk
       community.general.filesystem:
         fstype: ext4
-        dev: /dev/sdb
-
+        dev: /dev/disk/by-id/google-persistent-disk-1
     - name: Mount the persistent disk to /var/lib/mysql
       ansible.posix.mount:
         path: /var/lib/mysql
-        src: /dev/sdb
+        src: /dev/disk/by-id/google-persistent-disk-1
         fstype: ext4
         state: mounted
-    - name: Install packages 
+
+    - name: Install packages
+      ansible.builtin.apt:
+        update_cache: yes
+        cache_valid_time: 3600
+        name:
+          - mariadb-server
+          - python3-pymysql
+
+    - name: Grant all privileges to mediawiki user
+      community.mysql.mysql_query:
+        login_user: root
+        query: "GRANT ALL ON mediawiki.* TO 'mediawiki'@'%' IDENTIFIED BY 'mediawiki';"
+        login_unix_socket: /run/mysqld/mysqld.sock
+
+# ===============================================
+# PART 2: Web Server Setup on WEB Instance
+# ===============================================
+- hosts: tags_items___web__
+  name: Install Apache and PHP
+  become: yes
+  tasks:
+    - name: Install packages
       ansible.builtin.apt:
         update_cache: yes
         cache_valid_time: 3600
@@ -21,10 +46,4 @@
           - apache2
           - php
           - mediawiki
-          - mariadb-server 
           - python3-pymysql
-    - name: Grant all privileges to mediawiki user
-      community.mysql.mysql_query:
-          login_user: root          
-          query: "GRANT ALL ON mediawiki.* TO 'mediawiki'@'%' IDENTIFIED BY 'mediawiki';"
-          login_unix_socket: /run/mysqld/mysqld.sock
